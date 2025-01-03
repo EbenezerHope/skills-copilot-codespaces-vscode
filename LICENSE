@@ -1,20 +1,52 @@
-Copyright (c) GitHub and others
+//@version=6
+indicator("Dynamic Consolidation Range Detector [Fixed v6]", overlay=true)
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+// User Inputs
+minBars = input.int(5, title="Minimum Detection Bars", minval=1)
+atrMultiplier = input.float(1.5, title="Max Range (ATR Multiplier)", minval=0.1)
+boxColor = input.color(color.new(color.blue, 85), title="Box Background Color")
+borderColor = input.color(color.blue, title="Box Border Color")
+borderWidth = input.int(1, title="Border Width", minval=1)
 
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
+// ATR Calculation
+atr = ta.atr(14)
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// Variables to track consolidation range
+var box consolidationBox = na
+var float rangeHigh = na
+var float rangeLow = na
+
+// Consolidation Detection Logic
+inConsolidation = true
+for i = 0 to minBars - 1
+    if high[i] - low[i] > atr * atrMultiplier
+        inConsolidation := false
+
+if inConsolidation
+    if na(consolidationBox)
+        // Start Consolidation: Initialize range and create box
+        rangeHigh := high
+        rangeLow := low
+        consolidationBox := box.new(
+            left=bar_index,
+            right=bar_index,
+            top=rangeHigh,
+            bottom=rangeLow,
+            bgcolor=boxColor,
+            border_color=borderColor,
+            border_width=borderWidth
+        )
+    else
+        // Update Consolidation: Adjust range and extend box
+        rangeHigh := math.max(rangeHigh, high)
+        rangeLow := math.min(rangeLow, low)
+        box.set_right(consolidationBox, bar_index)
+        box.set_top(consolidationBox, rangeHigh)
+        box.set_bottom(consolidationBox, rangeLow)
+else
+    if not na(consolidationBox)
+        // Breakout from Consolidation: Delete box and reset variables
+        box.delete(consolidationBox)
+        consolidationBox := na
+        rangeHigh := na
+        rangeLow := na
